@@ -1,0 +1,22 @@
+[project]
+name = "hippodamus"
+version = "0.3.2"
+description = "Shared parts for local-first products: precedence, owner notes, rules as data, a local runner between products, a change feed, classification"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8", "psycopg[binary]>=3.2"]
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+source-include = ["docs/attribution.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

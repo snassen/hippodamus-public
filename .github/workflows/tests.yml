@@ -1,0 +1,56 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash  # bash -eo pipefail: a failing pytest is not hidden by tee
+    services:
+      # A disposable database that lives only as long as this job: no data, no secrets, trust auth on the runner.
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: hippodamus_test_ci
+        ports:
+          - 5441:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hippodamus_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # The test guard accepts only a local server on port 5441 and a hippodamus_test* database.
+      HIPPODAMUS_TEST_DSN: host=127.0.0.1 port=5441 user=postgres dbname=hippodamus_test_ci
+      UV_PYTHON: "3.14"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: false
+      - name: Install the locked dev environment
+        run: uv sync --locked
+      - name: Full suite, no skips allowed
+        run: |
+          uv run --locked pytest -q -rs -p no:cacheprovider | tee pytest.log
+          if grep -Eq '[0-9]+ skipped' pytest.log; then
+            echo "::error::the suite skipped tests; every test must run"
+            exit 1
+          fi
